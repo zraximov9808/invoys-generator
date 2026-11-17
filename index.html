@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoys generator — Invoice &amp; Packing List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#f4f3ee; --paper:#ffffff; --ink:#1c2333; --muted:#667085; --line:#e3e1d8; --line2:#d3d0c4;
+  --accent:#0f6e64; --accent-ink:#ffffff; --accent-soft:#e3f1ee; --warn:#a15c07; --warn-soft:#fdf3e2;
+  --danger:#b42318; --radius:10px; --shadow:0 1px 2px rgba(28,35,51,.06),0 4px 16px rgba(28,35,51,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:22px 20px 120px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+header.top h1{margin:0;font-size:24px;letter-spacing:-.01em}
+header.top p{margin:4px 0 0;color:var(--muted)}
+.badge{display:inline-block;font:500 11px "IBM Plex Mono",monospace;background:var(--ink);color:#fff;border-radius:4px;padding:2px 6px;vertical-align:3px;margin-left:6px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 18px 16px;margin-bottom:16px}
+.card h2{margin:0 0 14px;font-size:15px;display:flex;align-items:center;gap:10px}
+.card h2 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px}
+.card h2 .hint{font-weight:400;color:var(--muted);font-size:12.5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}}
+.party{border:1px dashed var(--line2);border-radius:8px;padding:12px}
+.party h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
+label.f{display:block;margin-bottom:10px}
+label.f>span{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+label.f>span i{font-style:normal;color:#98a2b3}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:#fff;border:1px solid var(--line2);border-radius:7px;padding:7px 9px;outline:none;transition:border-color .12s,box-shadow .12s}
+textarea{resize:vertical;min-height:38px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>*{flex:1}
+.row>.shrink{flex:0 0 auto}
+button{font:inherit;cursor:pointer;border-radius:7px;border:1px solid var(--line2);background:#fff;color:var(--ink);padding:7px 12px;white-space:nowrap;transition:background .12s,border-color .12s}
+button:hover{border-color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.primary:hover{background:#0b5a52}
+button.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+button.ghost:hover{color:var(--danger);border-color:transparent}
+button.sm{padding:4px 9px;font-size:12.5px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.check{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--muted);margin:2px 0 8px}
+.check input{width:auto}
+.lookup-msg{font-size:12.5px;margin:-4px 0 10px;padding:8px 10px;border-radius:7px;background:var(--warn-soft);color:var(--warn);display:none}
+.lookup-msg a{color:inherit;font-weight:600}
+.results{display:none;border:1px solid var(--line2);border-radius:7px;margin:-4px 0 10px;max-height:180px;overflow:auto}
+.results button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;white-space:normal;padding:8px 10px}
+.results button:last-child{border-bottom:0}
+.results small{color:var(--muted);display:block}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.tab{border:1px solid var(--line2);background:#fff;border-radius:999px;padding:5px 12px;font-size:13px}
+.tab b{font-family:"IBM Plex Mono",monospace;font-weight:500}
+.tab small{color:var(--muted);margin-left:4px}
+.tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.tab.on small{color:#c8ccd6}
+.inv-head{display:grid;grid-template-columns:160px 170px 1fr auto;gap:12px;align-items:end;margin-bottom:12px}
+@media (max-width:900px){.inv-head{grid-template-columns:1fr 1fr}}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.items{border-collapse:collapse;width:100%;min-width:1100px}
+table.items th{background:#f8f7f3;font-size:11.5px;font-weight:600;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.items td{border-bottom:1px solid var(--line);padding:5px 4px;vertical-align:top}
+table.items td.idx{color:var(--muted);text-align:center;padding-top:12px;width:30px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+table.items input,table.items textarea{border-color:transparent;background:transparent;padding:6px 6px}
+table.items input:hover,table.items textarea:hover{border-color:var(--line2)}
+table.items input:focus,table.items textarea:focus{background:#fff}
+table.items input.num{text-align:right;font-variant-numeric:tabular-nums}
+table.items textarea{min-height:34px;height:34px;overflow:hidden}
+table.items tfoot td{font-weight:700;background:#f8f7f3;padding:9px 10px;text-align:right;font-variant-numeric:tabular-nums}
+table.items tfoot td.l{text-align:left}
+.w-name{min-width:300px}.w-hs{width:120px}.w-n{width:96px}.w-t{width:92px}.w-x{width:34px}
+.below{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.below .sp{flex:1}
+.actions{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--line);z-index:20}
+.actions .in{max-width:1280px;margin:0 auto;padding:11px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.actions .sum{flex:1;color:var(--muted);font-size:13px;min-width:220px}
+.actions .sum b{color:var(--ink);font-variant-numeric:tabular-nums}
+.modal{position:fixed;inset:0;background:rgba(28,35,51,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 14px}
+.modal.on{display:flex}
+.dlg{background:#fff;border-radius:12px;max-width:1100px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:20px}
+.dlg h2{margin:0 0 4px;font-size:18px}
+.dlg .sub{color:var(--muted);margin:0 0 16px}
+.drop{display:block;cursor:pointer;border:2px dashed var(--line2);border-radius:10px;padding:26px;text-align:center;color:var(--muted);background:#fbfaf7}
+.drop.hover{border-color:var(--accent);background:var(--accent-soft)}
+.drop input{display:none}
+.drop b{color:var(--ink)}
+.mapgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:14px 0}
+@media (max-width:900px){.mapgrid{grid-template-columns:repeat(2,1fr)}}
+.mapgrid label span{font-size:11.5px}
+.mapgrid select.set{border-color:var(--accent);background:var(--accent-soft)}
+.preview{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.preview table{border-collapse:collapse;width:100%;font-size:12px}
+.preview th,.preview td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:left;white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.preview th{position:sticky;top:0;background:#f8f7f3;color:var(--muted)}
+.preview td.g{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
+.preview tr.sep td{border-top:2px solid var(--accent)}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 10px}
+.opt{border:1.5px solid var(--line2);border-radius:10px;padding:14px;cursor:pointer;background:#fff}
+.opt.on{border-color:var(--accent);background:var(--accent-soft)}
+.opt b{display:block;font-size:15px;margin-bottom:3px}
+.opt span{color:var(--muted);font-size:12.5px}
+.splitbox{display:none;border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;background:#fbfaf7}
+.splitbox.on{display:block}
+.radios label{display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;font-size:13px}
+.radios input{width:auto;margin-top:3px}
+.radios label.dis{opacity:.45}
+.stat{font-size:13px;color:var(--ink);background:var(--accent-soft);border-radius:7px;padding:8px 10px;margin:8px 0}
+.dlg-foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+.toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:all .2s;z-index:60;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.muted{color:var(--muted)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Invoys generator <span class="badge">INVOICE &amp; PACKING LIST</span></h1>
+      <p>Ma'lumotlarni kiriting yoki Excel'dan yuklang — invoys Excel faylida tayyor bo'ladi.</p>
+    </div>
+    <div class="row shrink" style="flex:0 0 auto">
+      <button id="btnSample" class="sm" title="Excel'dan yuklash uchun namuna">Namuna Excel</button>
+      <button id="btnReset" class="sm ghost" title="Barcha maydonlarni tozalash">Hammasini tozalash</button>
+    </div>
+  </header>
+
+  <!-- 1. parties -->
+  <section class="card">
+    <h2><span class="n">1</span> Sotuvchi va xaridor</h2>
+    <div class="grid2">
+      <div class="party">
+        <h3>Sotuvchi (The seller)
+          <span class="row shrink" style="gap:6px">
+            <select id="sellerSaved" class="sm" style="width:auto;max-width:180px;padding:3px 6px;font-size:12px"><option value="">Saqlanganlar…</option></select>
+            <button class="sm" id="sellerSave" title="Shu sotuvchini saqlab qo'yish">Saqlash</button>
+          </span>
+        </h3>
+        <label class="f"><span>Korxona nomi</span><input id="sellerName" placeholder='Masalan: "Chiping Jinda Wood Industry Co., Ltd"'></label>
+        <label class="f"><span>Manzili</span><textarea id="sellerAddress" rows="2" placeholder="North of Dongshou Road, Chiping County, Shandong, China"></textarea></label>
+      </div>
+      <div class="party">
+        <h3>Xaridor (Buyer)
+          <span class="row shrink" style="gap:6px">
+            <select id="buyerSaved" class="sm" style="width:auto;max-width:180px;padding:3px 6px;font-size:12px"><option value="">Saqlanganlar…</option></select>
+            <button class="sm" id="buyerSave" title="Shu xaridorni saqlab qo'yish">Saqlash</button>
+          </span>
+        </h3>
+        <div class="row">
+          <label class="f"><span>INN (STIR)</span><input id="buyerInn" inputmode="numeric" maxlength="14" placeholder="9 xonali"></label>
+          <label class="f shrink"><span>&nbsp;</span><button id="btnLookup" class="dark">orginfo.uz'dan topish</button></label>
+        </div>
+        <label class="check"><input type="checkbox" id="optForm" checked> Tashkiliy shaklni inglizcha qisqartirish (MCHJ → LLC, AJ → JSC) va manzil boshiga "Uzbekistan," qo'shish</label>
+        <div id="lookupMsg" class="lookup-msg"></div>
+        <div id="lookupResults" class="results"></div>
+        <label class="f"><span>Korxona nomi</span><input id="buyerName" placeholder='"ULTRASTROY" LLC'></label>
+        <label class="f"><span>Manzili</span><textarea id="buyerAddress" rows="2"></textarea></label>
+        <label class="f"><span>Telefon <i>(ixtiyoriy)</i></span><input id="buyerPhone" placeholder="+998 90 123 45 67"></label>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. contract & params -->
+  <section class="card">
+    <h2><span class="n">2</span> Shartnoma va parametrlar <span class="hint">— barcha invoyslar uchun umumiy</span></h2>
+    <div class="grid4">
+      <label class="f"><span>Shartnoma raqami <i>(ixtiyoriy)</i></span><input id="contractNo" placeholder="07112024-IMP"></label>
+      <label class="f"><span>Shartnoma sanasi <i>(ixtiyoriy)</i></span><input id="contractDate" type="date"></label>
+      <label class="f"><span>Valyuta</span>
+        <select id="currency"><option>USD</option><option>EUR</option><option>CNY</option><option>RUB</option><option>UZS</option><option>KZT</option><option>TRY</option><option>AED</option></select></label>
+      <label class="f"><span>Miqdor o'lchov birligi</span><input id="unit" list="unitList" placeholder="sq/m"></label>
+      <label class="f"><span>Transport turi</span>
+        <select id="transportType"><option value="container">Konteyner (CONTAINER NO)</option><option value="truck">Avtomashina (TRUCK NO)</option><option value="wagon">Vagon (WAGON NO)</option><option value="awb">Avia (AWB NO)</option></select></label>
+    </div>
+    <datalist id="unitList"><option value="sq/m"><option value="kg"><option value="pcs"><option value="m"><option value="m3"><option value="l"><option value="set"><option value="pair"><option value="ton"></datalist>
+    <datalist id="packList"><option value="carton"><option value="pallet"><option value="box"><option value="bag"><option value="bundle"><option value="roll"><option value="crate"><option value="drum"><option value="package"><option value="pcs"></datalist>
+  </section>
+
+  <!-- 3. invoices -->
+  <section class="card">
+    <h2><span class="n">3</span> Invoys va tovarlar</h2>
+    <div class="tabs" id="tabs"></div>
+    <div class="inv-head">
+      <label class="f" style="margin:0"><span>Faktura raqami</span><input id="invNo" placeholder="96"></label>
+      <label class="f" style="margin:0"><span>Faktura sanasi</span><input id="invDate" type="date"></label>
+      <label class="f" style="margin:0"><span id="trLabel">Konteyner raqami</span><input id="invTransport" placeholder="CIMU0282739"></label>
+      <div class="row shrink" style="gap:6px">
+        <button class="sm" id="btnDup" title="Joriy invoysdan nusxa olish">Nusxa</button>
+        <button class="sm ghost" id="btnDel" title="Joriy invoysni o'chirish">O'chirish</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table class="items">
+        <thead><tr>
+          <th>№</th><th class="w-name">Tovar nomi</th><th class="w-hs">HS code</th><th class="w-n">Joylar soni</th><th class="w-t">O'ram turi</th>
+          <th class="w-n">Brutto, kg</th><th class="w-n">Netto, kg</th><th class="w-n">Miqdori <span id="unitHead"></span></th><th class="w-n">Narxi</th><th class="w-n">Summa</th><th class="w-x"></th>
+        </tr></thead>
+        <tbody id="itemsBody"></tbody>
+        <tfoot><tr>
+          <td></td><td class="l">JAMI</td><td></td><td id="tPk"></td><td></td><td id="tGw"></td><td id="tNw"></td><td id="tQty"></td><td></td><td id="tSum"></td><td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <div class="below">
+      <button id="btnAddRow">+ Qator qo'shish</button>
+      <button id="btnImport" class="dark">Excel'dan yuklash…</button>
+      <span class="sp"></span>
+      <span class="muted" style="font-size:12.5px">Narx kiritilsa summa = miqdor × narx. Faqat summa kiritilsa narx = summa ÷ miqdor.</span>
+    </div>
+  </section>
+</div>
+
+<div class="actions"><div class="in">
+  <div class="sum" id="sumLine"></div>
+  <button id="btnDlOne" class="primary">Joriy invoysni yuklab olish (.xlsx)</button>
+  <button id="btnDlZip" class="hidden">Hammasi — alohida fayllar (ZIP)</button>
+  <button id="btnDlBook" class="hidden">Hammasi — bitta Excel</button>
+</div></div>
+
+<!-- import modal -->
+<div class="modal" id="imp"><div class="dlg">
+  <h2>Excel'dan yuklash</h2>
+  <p class="sub">Tovarlar ro'yxati bor faylni tanlang. Ustunlar avtomatik aniqlanadi — kerak bo'lsa o'zingiz to'g'rilang.</p>
+  <label class="drop" id="drop"><input type="file" id="file" accept=".xlsx,.xls,.xlsm,.csv">
+    <div><b>Faylni shu yerga tashlang</b> yoki bosib tanlang<br><span style="font-size:12.5px">.xlsx, .xls, .csv</span></div>
+    <div id="fileName" style="margin-top:6px;color:var(--accent);font-weight:600"></div>
+  </label>
+  <div id="impBody" class="hidden">
+    <div class="row" style="margin-top:14px">
+      <label class="f"><span>Varaq (list)</span><select id="impSheet"></select></label>
+      <label class="f"><span>Sarlavha qatori (Excel'dagi raqami)</span><input id="impHeader" type="number" min="1"></label>
+    </div>
+    <div class="mapgrid" id="mapgrid"></div>
+    <div class="preview" id="preview"></div>
+    <div class="choice">
+      <div class="opt" data-mode="one"><b>Bitta invoys</b><span>Barcha tovarlar bitta invoysga, bitta Excel faylga yoziladi</span></div>
+      <div class="opt" data-mode="many"><b>Alohida invoyslar</b><span>Tovarlar bir nechta invoysga ajratiladi — har biri alohida Excel</span></div>
+    </div>
+    <div class="splitbox" id="splitbox">
+      <div class="radios" id="splitRadios"></div>
+      <div class="row" style="max-width:520px">
+        <label class="f"><span>Raqami yo'q invoyslar uchun boshlang'ich raqam</span><input id="impStart" placeholder="96"></label>
+        <label class="f"><span>Sanasi yo'q invoyslar uchun sana</span><input id="impDate" type="date"></label>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="impMerge"> Har bir invoys ichida bir xil <b style="color:var(--ink)">&nbsp;tovar nomi, HS kod va narxdagi&nbsp;</b> qatorlarni bitta qatorga jamlash (masalan, turli modellar o'lcham bo'yicha)</label>
+    <label class="check"><input type="checkbox" id="impReplace" checked> Hozirgi invoyslar o'rniga qo'yish (belgini olib tashlasangiz — oxiriga qo'shiladi)</label>
+    <div class="stat" id="impStat"></div>
+  </div>
+  <div class="dlg-foot">
+    <button id="impCancel">Bekor qilish</button>
+    <button id="impGo" class="primary" disabled>Invoys yaratish</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* Invoice core: Excel building + upload parsing. Works in browser (window.InvoiceCore) and Node (module.exports). */
+(function (root) {
+  'use strict';
+
+  var FONT = 'Times New Roman';
+  var THIN = { style: 'thin' };
+  var BORDER = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+
+  function num(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    if (typeof v === 'object' && v && 'result' in v) return num(v.result);
+    var s = String(v).trim().replace(/[\s ']/g, '');
+    if (!s) return null;
+    // "1.234,56" or "1,234.56" or "1234,56"
+    var lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if (lastComma > -1 && lastDot > -1) {
+      if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');
+      else s = s.replace(/,/g, '');
+    } else if (lastComma > -1) {
+      s = s.replace(',', '.');
+    }
+    s = s.replace(/[^0-9.\-eE+]/g, '');
+    var n = parseFloat(s);
+    return isFinite(n) ? n : null;
+  }
+
+  function round(n, d) { var p = Math.pow(10, d); return Math.round(n * p) / p; }
+
+  /** Effective price/sum for an item: price wins; if only sum is given, price = sum / qty. */
+  function itemCalc(it) {
+    var qty = num(it.qty), price = num(it.price), sum = num(it.sum);
+    if (price === null && sum !== null && qty) price = sum / qty;
+    if (price !== null && qty !== null) sum = qty * price;
+    return { qty: qty, price: price, sum: sum };
+  }
+
+  function totals(items) {
+    var t = { packages: 0, gross: 0, net: 0, qty: 0, sum: 0 };
+    (items || []).forEach(function (it) {
+      t.packages += num(it.packages) || 0;
+      t.gross += num(it.gross) || 0;
+      t.net += num(it.net) || 0;
+      var c = itemCalc(it);
+      t.qty += c.qty || 0;
+      t.sum += c.sum || 0;
+    });
+    return t;
+  }
+
+  function fmtDate(d) {
+    // accepts 'YYYY-MM-DD', 'DD.MM.YYYY', Date
+    if (!d) return '';
+    if (d instanceof Date) {
+      return ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear();
+    }
+    var s = String(d).trim();
+    var m = s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+    if (m) return ('0' + m[3]).slice(-2) + '.' + ('0' + m[2]).slice(-2) + '.' + m[1];
+    return s;
+  }
+
+  var TRANSPORT = {
+    container: 'CONTAINER NO:',
+    truck: 'TRUCK NO:',
+    wagon: 'WAGON NO:',
+    awb: 'AWB NO:'
+  };
+
+  function estLines(text, charsPerLine) {
+    var lines = 0;
+    String(text || '').split(/\n/).forEach(function (p) { lines += Math.max(1, Math.ceil(p.length / charsPerLine)); });
+    return Math.max(1, lines);
+  }
+
+  /** Writes one invoice into an ExcelJS worksheet in the Invoice-95 layout. */
+  function writeInvoice(ws, inv) {
+    var cur = inv.currency || 'USD';
+    var unit = inv.unit || 'sq/m';
+    ws.columns = [
+      { width: 37.55 }, { width: 15.66 }, { width: 8.89 }, { width: 8.89 }, { width: 11 },
+      { width: 11.55 }, { width: 10.11 }, { width: 8.89 }, { width: 11.55 }
+    ];
+    ws.pageSetup = {
+      paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+      margins: { left: 0.59, right: 0.59, top: 0.3, bottom: 0.3, header: 0.31, footer: 0.31 }
+    };
+
+    function put(addr, value, o) {
+      o = o || {};
+      var c = ws.getCell(addr);
+      c.value = value;
+      c.font = { name: FONT, size: o.size || 12, bold: !!o.bold };
+      c.alignment = { horizontal: o.h || 'left', vertical: 'middle', wrapText: true };
+      if (o.border) c.border = BORDER;
+      if (o.fmt) c.numFmt = o.fmt;
+      return c;
+    }
+
+    ws.mergeCells('A2:I2'); put('A2', 'INVOICE & PACKING LIST', { h: 'center' });
+    ws.mergeCells('A3:I3'); put('A3', 'СЧЕТ-ФАКТУРА И УПАКОВОЧНЫЙ ЛИСТ', { h: 'center' });
+
+    var d = fmtDate(inv.date);
+    put('A5', 'Invoice NO: ' + (inv.no || ''));
+    ws.mergeCells('B5:D5'); put('B5', 'Invoice Date: ' + d, { h: 'center' });
+    put('A6', 'Счет-фактура №: ' + (inv.no || ''));
+    ws.mergeCells('B6:D6'); put('B6', 'Счет-фактура Дата: ' + d, { h: 'center' });
+    ws.mergeCells('F5:I5'); ws.mergeCells('F6:I6');
+    if (inv.contractNo) {
+      var cd = inv.contractDate ? '  ' + fmtDate(inv.contractDate) : '';
+      put('F5', 'Contract NO: ' + inv.contractNo + cd, { h: 'center' });
+      put('F6', 'Договор №: ' + inv.contractNo + cd, { h: 'center' });
+    }
+    ws.getRow(5).height = 15.6; ws.getRow(6).height = 15.6;
+
+    var seller = inv.seller || {}, buyer = inv.buyer || {};
+    put('A8', 'The seller:', { size: 14, bold: true, h: 'center' }); ws.getRow(8).height = 17.4;
+    ws.mergeCells('A9:I9'); put('A9', seller.name || '', { bold: true });
+    ws.mergeCells('A10:I10'); put('A10', 'ADDRESS: ' + (seller.address || ''));
+    ws.getRow(10).height = Math.max(15.6, estLines('ADDRESS: ' + (seller.address || ''), 120) * 15.6);
+
+    put('A13', 'Buyer:', { size: 14, bold: true, h: 'center' }); ws.getRow(13).height = 17.4;
+    ws.mergeCells('A14:I14'); put('A14', buyer.name || '', { bold: true });
+    ws.mergeCells('A15:I15'); put('A15', 'ADDRESS: ' + (buyer.address || ''));
+    ws.getRow(15).height = Math.max(15.6, estLines('ADDRESS: ' + (buyer.address || ''), 120) * 15.6);
+    if (buyer.inn) put('A16', 'VAT number: ' + buyer.inn);
+    if (buyer.phone) put('A17', 'TEL: ' + buyer.phone);
+
+    if (inv.transportNo) {
+      put('A19', (TRANSPORT[inv.transportType] || TRANSPORT.container) + ' ', { bold: true, h: 'right' });
+      put('B19', inv.transportNo, { bold: true, size: 11, h: 'center' });
+    }
+
+    // table header
+    var H = 22;
+    var heads = ['Full Description of Goods', 'HS code', 'Number of Packages', null, 'G.W (KGS)', 'N.W. (KGS)',
+      'Quantity ' + unit, 'Unit Price (' + cur + ')', 'Total (' + cur + ')'];
+    'ABCDEFGHI'.split('').forEach(function (col, i) {
+      put(col + H, heads[i], { bold: true, h: 'center', border: true });
+    });
+    ws.mergeCells('C' + H + ':D' + H);
+    ws.getRow(H).height = 46.8;
+
+    var items = (inv.items || []).filter(function (it) { return !isEmptyItem(it); });
+    if (!items.length) items = [{}];
+    var first = H + 1;
+    items.forEach(function (it, k) {
+      var r = first + k;
+      var c = itemCalc(it);
+      var hs = String(it.hs == null ? '' : it.hs).trim();
+      var hsVal = /^\d+$/.test(hs) && hs.length <= 15 ? Number(hs) : hs;
+      put('A' + r, it.name || '', { h: 'center', border: true });
+      put('B' + r, hsVal === '' ? null : hsVal, { h: 'center', border: true, fmt: '0' });
+      put('C' + r, num(it.packages), { h: 'center', border: true });
+      put('D' + r, it.packType || '', { h: 'center', border: true });
+      put('E' + r, num(it.gross), { h: 'center', border: true, fmt: '#,##0.00' });
+      put('F' + r, num(it.net), { h: 'center', border: true, fmt: '#,##0.00' });
+      put('G' + r, c.qty, { h: 'center', border: true, fmt: '#,##0.000' });
+      put('H' + r, c.price === null ? null : round(c.price, 6), { h: 'center', border: true, fmt: 'General' });
+      var cell = put('I' + r, null, { h: 'center', border: true, fmt: '#,##0.00' });
+      if (c.qty !== null && c.price !== null) {
+        cell.value = { formula: 'G' + r + '*H' + r, result: round(c.qty * round(c.price, 6), 6) };
+      }
+      ws.getRow(r).height = Math.max(31.2, estLines(it.name || '', 34) * 15.6 + 8);
+    });
+    var last = first + items.length - 1, tr = last + 1;
+    var t = totals(items);
+    var tot = { C: t.packages, E: t.gross, F: t.net, G: t.qty, I: t.sum };
+    var fmts = { C: '#,##0', E: '#,##0.00', F: '#,##0.00', G: '#,##0.000', I: '#,##0.00' };
+    'ABCDEFGHI'.split('').forEach(function (col) {
+      var cell = put(col + tr, col === 'A' ? 'TOTAL' : null, { bold: true, h: 'center', border: true, fmt: fmts[col] });
+      if (tot[col] !== undefined) {
+        cell.value = { formula: 'SUM(' + col + first + ':' + col + last + ')', result: round(tot[col], 6) };
+      }
+    });
+    ws.getRow(tr).height = 18;
+    return ws;
+  }
+
+  function isEmptyItem(it) {
+    if (!it) return true;
+    return !String(it.name || '').trim() && num(it.qty) === null && num(it.packages) === null &&
+      num(it.price) === null && num(it.sum) === null && num(it.gross) === null;
+  }
+
+  function safeSheetName(s, used) {
+    var base = String(s).replace(/[\\\/\?\*\[\]:]/g, '-').slice(0, 31) || 'Invoice';
+    var name = base, i = 2;
+    while (used[name.toLowerCase()]) { name = (base.slice(0, 27) + ' (' + i + ')'); i++; }
+    used[name.toLowerCase()] = 1;
+    return name;
+  }
+
+  function newWorkbook(ExcelJS) {
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'Invoys generator';
+    wb.created = new Date();
+    return wb;
+  }
+
+  /** One workbook with one sheet per invoice. */
+  function buildWorkbook(ExcelJS, invoices) {
+    var wb = newWorkbook(ExcelJS), used = {};
+    invoices.forEach(function (inv) {
+      writeInvoice(wb.addWorksheet(safeSheetName('Invoice ' + (inv.no || ''), used)), inv);
+    });
+    return wb;
+  }
+
+  function fileNameFor(inv) {
+    return ('Invoice-' + String(inv.no || 'yangi')).replace(/[\\\/:*?"<>|]+/g, '-') + '.xlsx';
+  }
+
+  // ---------------- upload parsing ----------------
+
+  var FIELDS = [
+    { key: 'invoiceNo', label: 'Invoice №' },
+    { key: 'date', label: 'Invoys sanasi' },
+    { key: 'transportNo', label: 'Konteyner / transport №' },
+    { key: 'name', label: 'Tovar nomi' },
+    { key: 'hs', label: 'HS code' },
+    { key: 'packages', label: 'Joylar soni' },
+    { key: 'packType', label: "O'ram turi" },
+    { key: 'gross', label: 'Brutto' },
+    { key: 'net', label: 'Netto' },
+    { key: 'qty', label: 'Miqdori' },
+    { key: 'price', label: 'Narxi' },
+    { key: 'sum', label: 'Summa' }
+  ];
+
+  // order = specificity: earlier keys claim columns first
+  var PATTERNS = [
+    ['gross', /брутто|brutto|gross|g\.?\s*w\b|毛重/],
+    ['net', /нетто|netto|\bnet\b|n\.?\s*w\b|净重/],
+    ['price', /цена|narx|price|单价|unit\s*price/],
+    ['sum', /сумма|summa|amount|total|стоимост|qiymat|金额|总价/],
+    ['hs', /\bhs\b|hs\s*code|тн\s*вэд|tif|код\s*тов|kodi|tn\s*ved|编码|海关编码|hs код/],
+    ['packType', /o['ʻ`’]?ram|тип\s*упак|вид\s*упак|упаковк|pack(age|ing)?\s*type|包装/],
+    ['packages', /joy(lar)?\s*soni|мест|packages|pkgs|ctns|cartons|короб|件数|箱数|发货数量|places/],
+    ['qty', /miqdor|количеств|кол-?во|quantity|\bqty\b|面积|数量|hajm|объ[её]м/],
+    ['date', /sana|дата|date|日期/],
+    ['transportNo', /konteyner|контейнер|container|集装箱|transport|вагон|vagon|машин|avto/],
+    ['invoiceNo', /invoice|инвойс|invoys|faktura|фактур|发票|tartib|№\s*inv/],
+    ['name', /tovar|nomi|наименован|описан|description|goods|product|товар|品名|名称|规格|型号|mahsulot/]
+  ];
+
+  function norm(s) { return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+  function guessMapping(headers) {
+    var map = {}, taken = {};
+    PATTERNS.forEach(function (p) {
+      var key = p[0], re = p[1];
+      for (var i = 0; i < headers.length; i++) {
+        if (taken[i]) continue;
+        if (re.test(norm(headers[i]))) { map[key] = i; taken[i] = 1; break; }
+      }
+    });
+    return map;
+  }
+
+  /** Picks the row (among the first 40) whose cells match the most header patterns. */
+  function findHeaderRow(rows) {
+    var best = 0, bestScore = 0;
+    for (var r = 0; r < Math.min(rows.length, 40); r++) {
+      var score = Object.keys(guessMapping(rows[r] || [])).length;
+      if (score > bestScore) { bestScore = score; best = r; }
+    }
+    return best;
+  }
+
+  var TOTAL_RE = /^(итого|всего|jami|total|итог|grand total|subtotal)(\b|$)|^(合计|总计|小计)/;
+
+  /**
+   * rows: array of arrays (cell values). Returns items with group fields;
+   * empty invoiceNo/date/transportNo cells inherit the value from the row above (fill-down).
+   */
+  function rowsToItems(rows, headerIdx, map) {
+    var headerNorm = (rows[headerIdx] || []).map(norm).join('|');
+    var out = [], carry = { invoiceNo: '', date: '', transportNo: '' }, block = 0, blockHasItems = false;
+    function get(row, key) { var i = map[key]; return i === undefined || i === null || i < 0 ? null : row[i]; }
+    for (var r = headerIdx + 1; r < rows.length; r++) {
+      var row = rows[r] || [];
+      var joined = row.map(norm).join('|');
+      if (!joined.replace(/\|/g, '')) continue;
+      if (joined === headerNorm) continue;
+      if (row.some(function (c) { return TOTAL_RE.test(norm(c)); })) {
+        if (blockHasItems) { block++; blockHasItems = false; }
+        continue;
+      }
+      var it = {
+        name: get(row, 'name') == null ? '' : String(get(row, 'name')).trim(),
+        hs: get(row, 'hs') == null ? '' : String(get(row, 'hs')).trim(),
+        packages: num(get(row, 'packages')),
+        packType: get(row, 'packType') == null ? '' : String(get(row, 'packType')).trim(),
+        gross: num(get(row, 'gross')),
+        net: num(get(row, 'net')),
+        qty: num(get(row, 'qty')),
+        price: num(get(row, 'price')),
+        sum: num(get(row, 'sum'))
+      };
+      if (it.qty === null && it.packages === null && it.price === null && it.sum === null) {
+        // a row without goods may still carry the invoice number (e.g. column M on a spare line)
+        var lone = get(row, 'invoiceNo');
+        lone = lone == null ? '' : String(lone).trim();
+        if (lone) {
+          var lastIt = out[out.length - 1];
+          if (lastIt && lastIt.block === block && !lastIt.raw_invoiceNo) {
+            for (var q = out.length - 1; q >= 0 && out[q].block === block; q--) out[q].invoiceNo = lone;
+            lastIt.raw_invoiceNo = lone;
+          }
+          carry.invoiceNo = lone;
+        }
+        continue;
+      }
+      ['invoiceNo', 'date', 'transportNo'].forEach(function (k) {
+        var v = get(row, k);
+        if (v instanceof Date) v = fmtDate(v);
+        v = v == null ? '' : String(v).trim();
+        if (v) carry[k] = v;
+        it[k] = carry[k];
+        it['raw_' + k] = v;
+      });
+      it.block = block; blockHasItems = true;
+      out.push(it);
+    }
+    return out;
+  }
+
+  /** mode: 'row' | 'invoiceNo' | 'transportNo' | 'block' (blocks separated by total rows) */
+  function groupItems(items, mode) {
+    if (mode === 'row') return items.map(function (it) { return [it]; });
+    if (mode === 'block') {
+      var gs = groupItems(items, '__block');
+      gs.forEach(function (g) {
+        ['invoiceNo', 'date', 'transportNo'].forEach(function (k) {
+          var v = '';
+          g.forEach(function (it) { if (!v && it['raw_' + k]) v = it['raw_' + k]; });
+          g.forEach(function (it) { it[k] = v; });
+        });
+      });
+      return gs;
+    }
+    if (mode === '__block') mode = 'block';
+    var groups = [], idx = {};
+    items.forEach(function (it) {
+      var k = String(it[mode] || '');
+      if (!(k in idx)) { idx[k] = groups.length; groups.push([]); }
+      groups[idx[k]].push(it);
+    });
+    return groups;
+  }
+
+  /** Merges rows with the same name + HS + price + package type (sums packages, weights, qty, sum). */
+  function mergeSame(items) {
+    var out = [], keys = [];
+    items.forEach(function (it) {
+      var c = itemCalc(it);
+      var key = [norm(it.name), c.price === null ? '' : round(c.price, 6), norm(it.packType)].join('|');
+      var hs = norm(it.hs), at = -1;
+      // same name/price/packing; an empty HS code (e.g. given only on the first line) matches any
+      for (var i = 0; i < out.length; i++) {
+        if (keys[i] === key && (!hs || !norm(out[i].hs) || norm(out[i].hs) === hs)) { at = i; break; }
+      }
+      if (at < 0) {
+        keys.push(key);
+        out.push(Object.assign({}, it, { price: c.price, sum: c.price === null ? c.sum : null }));
+        return;
+      }
+      var t = out[at];
+      if (!norm(t.hs) && hs) t.hs = it.hs;
+      ['packages', 'gross', 'net', 'qty'].forEach(function (f) {
+        var a = num(t[f]), b = num(it[f]);
+        t[f] = a === null && b === null ? null : (a || 0) + (b || 0);
+      });
+      if (t.price === null) {
+        var sa = num(t.sum), sb = c.sum;
+        t.sum = sa === null && sb === null ? null : (sa || 0) + (sb || 0);
+      }
+    });
+    return out;
+  }
+
+  /** Sample upload template (array of arrays). */
+  function sampleRows() {
+    return [
+      ['Invoice №', 'Invoys sanasi', 'Konteyner / transport №', 'Tovar nomi', 'HS code', 'Joylar soni', "O'ram turi", 'Brutto (kg)', 'Netto (kg)', 'Miqdori', 'Narxi', 'Summa'],
+      [96, '17.11.2026', 'CIMU0282739', 'Плиты древесно-волокнистые МДФ размер 1220*240*8 мм, 10 штук в одной коробке / MDF wood fiber boards size 1220*240*8 мм, 10 pieces in one box', '4411131000', 1324, 'carton', 25420.8, 25156, 3876.672, 2.52, ''],
+      [97, '17.11.2026', 'CIMU0282615', 'Плиты древесно-волокнистые МДФ размер 1220*200*7 мм, 12 штук в одной коробке / MDF wood fiber boards size 1220*200*7 мм, 12 pieces in one box', '4411131000', 278, 'carton', 4642.6, 4587, 813.984, 1.95, '']
+    ];
+  }
+
+  var api = {
+    num: num, round: round, itemCalc: itemCalc, totals: totals, fmtDate: fmtDate,
+    writeInvoice: writeInvoice, buildWorkbook: buildWorkbook, newWorkbook: newWorkbook, fileNameFor: fileNameFor,
+    isEmptyItem: isEmptyItem, FIELDS: FIELDS, guessMapping: guessMapping, findHeaderRow: findHeaderRow,
+    rowsToItems: rowsToItems, groupItems: groupItems, mergeSame: mergeSame, sampleRows: sampleRows, TRANSPORT: TRANSPORT
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.InvoiceCore = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+(function(){
+'use strict';
+var C = window.InvoiceCore;
+var $ = function(id){ return document.getElementById(id); };
+var LS_KEY = 'invgen.v1', LS_SELLERS = 'invgen.sellers', LS_BUYERS = 'invgen.buyers';
+
+function lsGet(k, d){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function toISO(v){
+  if(!v) return '';
+  if(v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+('0'+(v.getMonth()+1)).slice(-2)+'-'+('0'+v.getDate()).slice(-2);
+  var s=String(v).trim(), m;
+  if((m=s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/))) return m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2);
+  if((m=s.match(/^(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{4})/))) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  if(/^\d{5}$/.test(s)){ var d=new Date(Math.round((+s-25569)*86400000)); return toISO(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); }
+  return '';
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function fmt(n, d){ if(n===null||n===undefined||!isFinite(n)) return ''; return Number(n).toLocaleString('ru-RU',{minimumFractionDigits:d===undefined?2:d, maximumFractionDigits:d===undefined?2:Math.max(d,2)}).replace(/ /g,' '); }
+function fmtFree(n){ if(n===null||n===undefined||n==='') return ''; var x=C.num(n); if(x===null) return String(n); return String(C.round(x,6)); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+function blankItem(){ return {name:'',hs:'',packages:'',packType:'carton',gross:'',net:'',qty:'',price:'',sum:''}; }
+function blankInvoice(no){ return {id:uid(), no:no||'', date:todayISO(), transportNo:'', items:[blankItem()]}; }
+
+var defaults = {
+  common:{contractNo:'',contractDate:'',currency:'USD',unit:'sq/m',transportType:'container',
+    seller:{name:'',address:''}, buyer:{inn:'',name:'',address:'',phone:''}},
+  invoices:[blankInvoice('')], active:0
+};
+var state = lsGet(LS_KEY, null);
+if(!state || !state.invoices || !state.invoices.length) state = JSON.parse(JSON.stringify(defaults));
+if(state.active >= state.invoices.length) state.active = 0;
+
+var saveTimer=null;
+function persist(){ clearTimeout(saveTimer); saveTimer=setTimeout(function(){ lsSet(LS_KEY, state); }, 300); }
+function cur(){ return state.invoices[state.active]; }
+
+function toast(msg, ms){ var t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(function(){ t.classList.remove('on'); }, ms||2600); }
+
+// ---------- common fields binding ----------
+var commonMap = [
+  ['sellerName','seller','name'],['sellerAddress','seller','address'],
+  ['buyerInn','buyer','inn'],['buyerName','buyer','name'],['buyerAddress','buyer','address'],['buyerPhone','buyer','phone'],
+  ['contractNo',null,'contractNo'],['contractDate',null,'contractDate'],['currency',null,'currency'],['unit',null,'unit'],['transportType',null,'transportType']
+];
+function fillCommon(){
+  commonMap.forEach(function(m){ var o=m[1]?state.common[m[1]]:state.common; $(m[0]).value = o[m[2]]||''; });
+  if(!$('currency').value) $('currency').value='USD';
+  if(!$('transportType').value) $('transportType').value='container';
+  updateLabels();
+}
+commonMap.forEach(function(m){
+  $(m[0]).addEventListener('input', function(){ var o=m[1]?state.common[m[1]]:state.common; o[m[2]]=this.value; if(m[2]==='unit'||m[2]==='transportType'||m[2]==='currency') updateLabels(); persist(); });
+  $(m[0]).addEventListener('change', function(){ var o=m[1]?state.common[m[1]]:state.common; o[m[2]]=this.value; updateLabels(); persist(); });
+});
+function updateLabels(){
+  var tt={container:'Konteyner raqami',truck:'Avtomashina raqami',wagon:'Vagon raqami',awb:'AWB raqami'};
+  $('trLabel').textContent = tt[state.common.transportType]||tt.container;
+  $('unitHead').textContent = state.common.unit ? '('+state.common.unit+')' : '';
+  updateTotals();
+}
+
+// ---------- saved parties ----------
+function refreshSaved(){
+  [['sellerSaved',LS_SELLERS],['buyerSaved',LS_BUYERS]].forEach(function(p){
+    var list=lsGet(p[1],[]), sel=$(p[0]);
+    sel.innerHTML='<option value="">Saqlanganlar…</option>'+list.map(function(x,i){return '<option value="'+i+'">'+esc(x.name||'(nomsiz)')+'</option>';}).join('')+(list.length?'<option value="del">— ro\'yxatni tozalash</option>':'');
+  });
+}
+function bindSaved(kind, lsKey){
+  $(kind+'Save').addEventListener('click', function(){
+    var p=state.common[kind]; if(!p.name){ toast('Avval korxona nomini kiriting'); return; }
+    var list=lsGet(lsKey,[]).filter(function(x){ return x.name!==p.name; });
+    list.unshift(JSON.parse(JSON.stringify(p))); lsSet(lsKey,list.slice(0,30)); refreshSaved(); toast('Saqlandi: '+p.name);
+  });
+  $(kind+'Saved').addEventListener('change', function(){
+    var v=this.value; if(v==='') return;
+    if(v==='del'){ lsSet(lsKey,[]); refreshSaved(); return; }
+    var x=lsGet(lsKey,[])[+v]; if(x){ state.common[kind]=Object.assign(state.common[kind], x); fillCommon(); persist(); }
+    this.value='';
+  });
+}
+bindSaved('seller', LS_SELLERS); bindSaved('buyer', LS_BUYERS);
+
+// ---------- orginfo lookup ----------
+var FORMS = [
+  [/mas['`ʻ’‘]?\s*uliyati\s+cheklangan\s+jamiyat(i)?/i,'LLC'],
+  [/масъулияти\s+чекланган\s+жамият(и)?/i,'LLC'],
+  [/общество\s+с\s+ограниченной\s+ответственностью/i,'LLC'],
+  [/(^|\s)(mchj|ооо|мчж)(?=\s|$)/i,'LLC'],
+  [/aksiyadorlik\s+jamiyat(i)?/i,'JSC'],[/акциядорлик\s+жамият(и)?/i,'JSC'],[/акционерное\s+общество/i,'JSC'],[/(^|\s)(aj|ао)(?=\s|$)/i,'JSC'],
+  [/xususiy\s+korxona(si)?/i,'PE'],[/хусусий\s+корхона(си)?/i,'PE'],[/частное\s+предприятие/i,'PE'],[/(^|\s)(xk|чп)(?=\s|$)/i,'PE'],
+  [/oilaviy\s+korxona(si)?/i,'Family Enterprise'],
+  [/qo['`ʻ’‘]?shma\s+korxona(si)?/i,'JV'],
+  [/xorijiy\s+korxona(si)?/i,'Foreign Enterprise'],
+  [/yakka\s+tartibdagi\s+tadbirkor/i,'IE']
+];
+function cleanName(n){
+  n=String(n||'').replace(/\s+/g,' ').trim();
+  if(!$('optForm').checked) return n;
+  for(var i=0;i<FORMS.length;i++){
+    if(FORMS[i][0].test(n)){ n=n.replace(FORMS[i][0],' ').replace(/\s+/g,' ').replace(/^[\s,.-]+|[\s,.-]+$/g,'').trim(); return n+' '+FORMS[i][1]; }
+  }
+  return n;
+}
+function cleanAddr(a){
+  a=String(a||'').replace(/\s+/g,' ').trim();
+  if($('optForm').checked && a && !/^(uzbekistan|o['`ʻ’]?zbekiston|узбекистан)/i.test(a)) a='Uzbekistan, '+a;
+  return a;
+}
+function applyOrg(o){
+  state.common.buyer.inn=o.inn||state.common.buyer.inn;
+  state.common.buyer.name=cleanName(o.name);
+  state.common.buyer.address=cleanAddr(o.address);
+  fillCommon(); persist();
+  $('lookupResults').style.display='none';
+  toast('Xaridor ma\'lumotlari to\'ldirildi');
+}
+function fetchTimeout(url, ms){
+  return new Promise(function(res, rej){
+    var t=setTimeout(function(){ rej(new Error('timeout')); }, ms);
+    fetch(url,{headers:{'Accept':'application/json'}}).then(function(r){ clearTimeout(t); res(r); }, function(e){ clearTimeout(t); rej(e); });
+  });
+}
+$('btnLookup').addEventListener('click', function(){
+  var inn=($('buyerInn').value||'').replace(/\D/g,'');
+  var msg=$('lookupMsg'), box=$('lookupResults');
+  msg.style.display='none'; box.style.display='none';
+  if(inn.length!==9 && inn.length!==14){ toast('INN 9 xonali (JShShIR 14 xonali) bo\'lishi kerak'); return; }
+  var link='https://orginfo.uz/ru/search/all/?q='+inn;
+  var btn=this; btn.disabled=true; btn.textContent='Qidirilmoqda…';
+  function fallback(why){
+    msg.innerHTML=(why||'Avtomatik qidiruv bu sahifada ishlamadi.')+' <a href="'+link+'" target="_blank" rel="noopener">orginfo.uz da ochish ↗</a> — nom va manzilni nusxalab, quyidagi maydonlarga qo\'ying.';
+    msg.style.display='block';
+  }
+  fetchTimeout('api/orginfo?inn='+inn, 12000).then(function(r){
+    if(!r.ok) throw new Error('http '+r.status);
+    var ct=r.headers.get('content-type')||''; if(ct.indexOf('json')<0) throw new Error('not json');
+    return r.json();
+  }).then(function(j){
+    var list=(j && j.results)||[];
+    if(!list.length){ fallback('Bu INN bo\'yicha korxona topilmadi.'); return; }
+    if(list.length===1){ applyOrg(list[0]); return; }
+    box.innerHTML=list.map(function(o,i){ return '<button data-i="'+i+'"><b>'+esc(o.name)+'</b><small>'+esc(o.inn)+' · '+esc(o.address)+'</small></button>'; }).join('');
+    box.style.display='block';
+    box.onclick=function(e){ var b=e.target.closest('button'); if(b) applyOrg(list[+b.dataset.i]); };
+  }).catch(function(){ fallback(); })
+  .then(function(){ btn.disabled=false; btn.textContent='orginfo.uz\'dan topish'; });
+});
+
+// ---------- invoices / tabs ----------
+function renderTabs(){
+  var html=state.invoices.map(function(inv,i){
+    var t=C.totals(inv.items);
+    return '<button class="tab'+(i===state.active?' on':'')+'" data-i="'+i+'">№ <b>'+esc(inv.no||'—')+'</b><small>'+(t.sum?fmt(t.sum)+' '+esc(state.common.currency):'bo\'sh')+'</small></button>';
+  }).join('');
+  $('tabs').innerHTML=html+'<button class="tab" id="tabNew">+ Yangi invoys</button>';
+  var many=state.invoices.length>1;
+  $('btnDlZip').classList.toggle('hidden',!many);
+  $('btnDlBook').classList.toggle('hidden',!many);
+  $('btnDel').disabled=!many;
+}
+$('tabs').addEventListener('click', function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  if(b.id==='tabNew'){
+    var last=state.invoices[state.invoices.length-1], n=C.num(last&&last.no);
+    var inv=blankInvoice(n!==null?String(n+1):'');
+    if(last){ inv.date=last.date; }
+    state.invoices.push(inv); state.active=state.invoices.length-1;
+  } else state.active=+b.dataset.i;
+  renderInvoice(); persist();
+});
+['invNo','invDate','invTransport'].forEach(function(id){
+  var key={invNo:'no',invDate:'date',invTransport:'transportNo'}[id];
+  $(id).addEventListener('input', function(){ cur()[key]=this.value; if(key==='no') renderTabs(); persist(); });
+});
+$('btnDup').addEventListener('click', function(){
+  var c=JSON.parse(JSON.stringify(cur())); c.id=uid(); var n=C.num(c.no); c.no=n!==null?String(n+1):'';
+  state.invoices.splice(state.active+1,0,c); state.active++; renderInvoice(); persist(); toast('Nusxa yaratildi');
+});
+$('btnDel').addEventListener('click', function(){
+  if(state.invoices.length<2) return;
+  var b=this;
+  if(!b._armed){ b._armed=true; b.textContent='Tasdiqlang: o\'chirish'; b.style.color='var(--danger)'; setTimeout(function(){ b._armed=false; b.textContent='O\'chirish'; b.style.color=''; },3000); return; }
+  b._armed=false; b.textContent='O\'chirish'; b.style.color='';
+  state.invoices.splice(state.active,1); state.active=Math.max(0,state.active-1); renderInvoice(); persist();
+});
+
+// ---------- items table ----------
+var COLS=[['name','text'],['hs','text'],['packages','num'],['packType','text'],['gross','num'],['net','num'],['qty','num'],['price','num'],['sum','num']];
+function rowHTML(it,i){
+  var c=C.itemCalc(it);
+  var cells=COLS.map(function(col){
+    var f=col[0], v=it[f];
+    if(f==='name') return '<td><textarea data-i="'+i+'" data-f="name" rows="1" placeholder="Tovar nomi (RU / EN)">'+esc(v)+'</textarea></td>';
+    if(f==='sum') return '<td><input class="num" data-i="'+i+'" data-f="sum" inputmode="decimal" value="'+esc(c.sum!==null?fmtFree(C.round(c.sum,6)):'')+'"></td>';
+    if(f==='price') return '<td><input class="num" data-i="'+i+'" data-f="price" inputmode="decimal" value="'+esc(c.price!==null?fmtFree(C.round(c.price,6)):'')+'"></td>';
+    if(f==='packType') return '<td><input data-i="'+i+'" data-f="packType" list="packList" value="'+esc(v)+'"></td>';
+    return '<td><input class="'+(col[1]==='num'?'num':'')+'" data-i="'+i+'" data-f="'+f+'" '+(col[1]==='num'?'inputmode="decimal"':'')+' value="'+esc(col[1]==='num'?fmtFree(v):v)+'"></td>';
+  }).join('');
+  return '<tr><td class="idx">'+(i+1)+'</td>'+cells+'<td><button class="ghost sm" data-del="'+i+'" title="Qatorni o\'chirish">✕</button></td></tr>';
+}
+function autoH(t){ t.style.height='34px'; t.style.height=Math.max(34,t.scrollHeight)+'px'; }
+function renderItems(){
+  var inv=cur(); if(!inv.items.length) inv.items.push(blankItem());
+  $('itemsBody').innerHTML=inv.items.map(rowHTML).join('');
+  Array.prototype.forEach.call($('itemsBody').querySelectorAll('textarea'), autoH);
+  updateTotals();
+}
+function renderInvoice(){
+  var inv=cur();
+  $('invNo').value=inv.no||''; $('invDate').value=inv.date||''; $('invTransport').value=inv.transportNo||'';
+  renderTabs(); renderItems();
+}
+$('itemsBody').addEventListener('input', function(e){
+  var el=e.target, i=+el.dataset.i, f=el.dataset.f; if(!f) return;
+  var it=cur().items[i];
+  if(f==='name'){ it.name=el.value; autoH(el); }
+  else if(f==='price'){ it.price=el.value; it.sum=''; syncRow(i,'price'); }
+  else if(f==='sum'){
+    var q=C.num(it.qty), s=C.num(el.value);
+    if(q && s!==null){ it.price=String(C.round(s/q,6)); it.sum=''; } else { it.sum=el.value; it.price=''; }
+    syncRow(i,'sum');
+  }
+  else if(f==='qty'){ it.qty=el.value; syncRow(i,'qty'); }
+  else it[f]=el.value;
+  updateTotals(); persist();
+});
+function syncRow(i, editing){
+  var tr=$('itemsBody').rows[i]; if(!tr) return; var it=cur().items[i], c=C.itemCalc(it);
+  if(editing!=='sum'){ var s=tr.querySelector('[data-f=sum]'); s.value=c.sum!==null?fmtFree(C.round(c.sum,6)):''; }
+  if(editing!=='price'){ var p=tr.querySelector('[data-f=price]'); p.value=c.price!==null?fmtFree(C.round(c.price,6)):''; }
+}
+$('itemsBody').addEventListener('click', function(e){
+  var b=e.target.closest('[data-del]'); if(!b) return;
+  cur().items.splice(+b.dataset.del,1); renderItems(); renderTabs(); persist();
+});
+$('itemsBody').addEventListener('paste', function(e){
+  // paste a block copied from Excel into the table
+  var el=e.target; if(!el.dataset || el.dataset.i===undefined) return;
+  var text=(e.clipboardData||window.clipboardData).getData('text');
+  if(!text || (text.indexOf('\t')<0 && text.split(/\r?\n/).filter(Boolean).length<2)) return;
+  e.preventDefault();
+  var rows=text.replace(/\r/g,'').split('\n'); if(rows[rows.length-1]==='') rows.pop();
+  var startI=+el.dataset.i, startC=COLS.map(function(c){return c[0];}).indexOf(el.dataset.f), items=cur().items;
+  rows.forEach(function(line,ri){
+    var cells=line.split('\t'), it=items[startI+ri]; if(!it){ it=blankItem(); items.push(it); }
+    cells.forEach(function(v,ci){ var col=COLS[startC+ci]; if(col) it[col[0]]=v.trim(); });
+  });
+  renderItems(); renderTabs(); persist(); toast(rows.length+' qator joylandi');
+});
+$('btnAddRow').addEventListener('click', function(){
+  var items=cur().items, prev=items[items.length-1], it=blankItem();
+  if(prev){ it.hs=prev.hs; it.packType=prev.packType||'carton'; }
+  items.push(it); renderItems(); persist();
+  var tas=$('itemsBody').querySelectorAll('textarea'); if(tas.length) tas[tas.length-1].focus();
+});
+function updateTotals(){
+  var inv=cur(), t=C.totals(inv.items);
+  $('tPk').textContent=fmt(t.packages,0); $('tGw').textContent=fmt(t.gross); $('tNw').textContent=fmt(t.net);
+  $('tQty').textContent=fmt(t.qty,3); $('tSum').textContent=fmt(t.sum);
+  var all={n:state.invoices.length,sum:0,pk:0};
+  state.invoices.forEach(function(v){ var x=C.totals(v.items); all.sum+=x.sum; all.pk+=x.packages; });
+  $('sumLine').innerHTML='Joriy invoys: <b>'+fmt(t.sum)+' '+esc(state.common.currency||'')+'</b>'+
+    (all.n>1?' &nbsp;·&nbsp; Jami <b>'+all.n+'</b> ta invoys, <b>'+fmt(all.sum)+' '+esc(state.common.currency||'')+'</b>, '+fmt(all.pk,0)+' joy':'');
+  var tab=$('tabs').querySelector('.tab.on small'); if(tab) tab.textContent=t.sum?fmt(t.sum)+' '+(state.common.currency||''):'bo\'sh';
+}
+
+// ---------- build & download ----------
+var dlNs=null, dlReady=null;
+function getDownloads(){
+  if(dlReady) return dlReady;
+  dlReady=new Promise(function(res){
+    if(!(window.claude && typeof window.claude.use==='function')) return res(null);
+    var done=false; setTimeout(function(){ if(!done){ done=true; res(null); } }, 4000);
+    window.claude.use('downloads').then(function(ns){ if(!done){ done=true; res(ns); } }, function(){ if(!done){ done=true; res(null); } });
+  });
+  return dlReady.then(function(ns){ dlNs=ns; return ns; });
+}
+getDownloads();
+function saveBlob(name, blob){
+  return getDownloads().then(function(ns){
+    if(ns){
+      return ns.save({filename:name, data:blob}).then(function(){ toast('Tayyor: '+name); }, function(err){
+        var code=err&&err.code;
+        if(code==='declined'){ toast('Yuklab olish bekor qilindi'); return; }
+        if(code==='rate_limited'){ toast('Bir oz kutib, qayta bosing'); return; }
+        anchorSave(name, blob);
+      });
+    }
+    anchorSave(name, blob);
+  });
+}
+function anchorSave(name, blob){
+  var url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+  toast('Tayyor: '+name);
+}
+var XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+function invFull(inv){
+  var c=state.common;
+  return {no:inv.no, date:inv.date, transportNo:inv.transportNo, items:inv.items,
+    contractNo:c.contractNo, contractDate:c.contractDate, currency:c.currency||'USD', unit:c.unit||'',
+    transportType:c.transportType, seller:c.seller, buyer:c.buyer};
+}
+function check(invs){
+  var warn=[];
+  if(!state.common.seller.name) warn.push('sotuvchi nomi');
+  if(!state.common.buyer.name) warn.push('xaridor nomi');
+  invs.forEach(function(v){ if(!String(v.no||'').trim()) warn.push('invoys raqami'); });
+  var uniq=warn.filter(function(x,i){ return warn.indexOf(x)===i; });
+  if(uniq.length) toast('Diqqat: to\'ldirilmagan — '+uniq.join(', '), 4000);
+}
+function wbBlob(invs){ return C.buildWorkbook(window.ExcelJS, invs.map(invFull)).xlsx.writeBuffer().then(function(b){ return new Blob([b],{type:XLSX_MIME}); }); }
+function libsOk(){ if(!window.ExcelJS){ toast('Excel kutubxonasi yuklanmadi — internetni tekshiring'); return false; } return true; }
+$('btnDlOne').addEventListener('click', function(){
+  if(!libsOk()) return; var inv=cur(); check([inv]);
+  wbBlob([inv]).then(function(b){ return saveBlob(C.fileNameFor(inv), b); });
+});
+$('btnDlBook').addEventListener('click', function(){
+  if(!libsOk()) return; check(state.invoices);
+  wbBlob(state.invoices).then(function(b){ return saveBlob(rangeName('Invoyslar')+'.xlsx', b); });
+});
+$('btnDlZip').addEventListener('click', function(){
+  if(!libsOk()) return; if(!window.JSZip){ toast('ZIP kutubxonasi yuklanmadi'); return; }
+  check(state.invoices);
+  var zip=new window.JSZip(), used={};
+  Promise.all(state.invoices.map(function(inv){
+    return C.buildWorkbook(window.ExcelJS,[invFull(inv)]).xlsx.writeBuffer().then(function(buf){
+      var n=C.fileNameFor(inv), k=n, j=2; while(used[k]){ k=n.replace(/\.xlsx$/,' ('+(j++)+').xlsx'); } used[k]=1;
+      zip.file(k, buf);
+    });
+  })).then(function(){ return zip.generateAsync({type:'blob'}); })
+    .then(function(b){ return saveBlob(rangeName('Invoyslar')+'.zip', b); });
+});
+function rangeName(base){
+  var nos=state.invoices.map(function(v){return String(v.no||'').trim();}).filter(Boolean);
+  if(!nos.length) return base;
+  return base+'-'+nos[0]+(nos.length>1?'-'+nos[nos.length-1]:'');
+}
+$('btnSample').addEventListener('click', function(){
+  if(!libsOk()) return;
+  var wb=new window.ExcelJS.Workbook(), ws=wb.addWorksheet('Tovarlar');
+  var rows=C.sampleRows();
+  rows.forEach(function(r){ ws.addRow(r); });
+  ws.getRow(1).font={bold:true}; ws.getRow(1).alignment={wrapText:true,vertical:'middle'};
+  ws.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE3F1EE'}};
+  [12,13,22,60,14,12,12,12,12,12,10,12].forEach(function(w,i){ ws.getColumn(i+1).width=w; });
+  ws.getColumn(5).numFmt='@';
+  var g=wb.addWorksheet('Yo\'riqnoma');
+  ['1-qatorda ustun nomlari bo\'lsin (tartibi muhim emas — sayt o\'zi aniqlaydi).',
+   'Invoice № ustuni: bir xil raqamli qatorlar bitta invoysga tushadi. Raqam faqat birinchi qatorda bo\'lsa ham bo\'ladi — pastdagilar o\'shanga qo\'shiladi.',
+   'Konteyner ustuni bo\'yicha ham ajratish mumkin.',
+   'Narx yoki Summadan bittasini kiritish kifoya: narx bo\'lsa summa = miqdor × narx, faqat summa bo\'lsa narx = summa ÷ miqdor.',
+   'Jami/Итого/TOTAL qatorlari avtomatik tashlab ketiladi.',
+   'Sotuvchi, xaridor, shartnoma va valyuta saytda kiritiladi — ular hamma invoyslar uchun umumiy.'
+  ].forEach(function(t,i){ g.addRow([(i+1)+'.', t]); });
+  g.getColumn(1).width=4; g.getColumn(2).width=110;
+  wb.xlsx.writeBuffer().then(function(b){ saveBlob('Invoys-namuna.xlsx', new Blob([b],{type:XLSX_MIME})); });
+});
+$('btnReset').addEventListener('click', function(){
+  var b=this;
+  if(!b._armed){ b._armed=true; b.textContent='Ishonchingiz komilmi? Yana bosing'; b.style.color='var(--danger)'; setTimeout(function(){ b._armed=false; b.textContent='Hammasini tozalash'; b.style.color=''; },3500); return; }
+  b._armed=false; b.textContent='Hammasini tozalash'; b.style.color='';
+  var keep={seller:state.common.seller};
+  state=JSON.parse(JSON.stringify(defaults)); state.common.seller=keep.seller; state.invoices=[blankInvoice('')];
+  fillCommon(); renderInvoice(); persist(); toast('Tozalandi (sotuvchi saqlab qolindi)');
+});
+
+// ---------- import ----------
+var imp={book:null, rows:[], header:0, map:{}, items:[], mode:'many', split:'block'};
+function openImp(){ $('imp').classList.add('on'); $('impDate').value=cur().date||todayISO(); var n=C.num(cur().no); $('impStart').value=n!==null?String(n):''; }
+function closeImp(){ $('imp').classList.remove('on'); }
+$('btnImport').addEventListener('click', openImp);
+$('impCancel').addEventListener('click', closeImp);
+$('imp').addEventListener('click', function(e){ if(e.target===this) closeImp(); });
+var drop=$('drop');
+['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('hover'); }); });
+['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('hover'); }); });
+drop.addEventListener('drop', function(e){ var f=e.dataTransfer.files[0]; if(f) readFile(f); });
+$('file').addEventListener('change', function(){ if(this.files[0]) readFile(this.files[0]); this.value=''; });
+function readFile(f){
+  if(!window.XLSX){ toast('Excel o\'qish kutubxonasi yuklanmadi'); return; }
+  $('fileName').textContent=f.name;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      imp.book=window.XLSX.read(new Uint8Array(r.result),{type:'array',cellDates:true});
+      $('impSheet').innerHTML=imp.book.SheetNames.map(function(n,i){ return '<option value="'+i+'">'+esc(n)+'</option>'; }).join('');
+      loadSheet(0);
+      $('impBody').classList.remove('hidden');
+    }catch(err){ toast('Faylni o\'qib bo\'lmadi: '+err.message, 4000); }
+  };
+  r.readAsArrayBuffer(f);
+}
+$('impSheet').addEventListener('change', function(){ loadSheet(+this.value); });
+function loadSheet(i){
+  var ws=imp.book.Sheets[imp.book.SheetNames[i]];
+  var range=window.XLSX.utils.decode_range(ws['!ref']||'A1');
+  imp.offset=range.s.r; // first row index of the sheet range
+  imp.rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:true});
+  // pad rows so array index == column index from A
+  if(range.s.c>0) imp.rows=imp.rows.map(function(r){ var p=new Array(range.s.c).fill(null); return p.concat(r); });
+  imp.header=C.findHeaderRow(imp.rows);
+  $('impHeader').value=imp.header+imp.offset+1;
+  imp.map=C.guessMapping(imp.rows[imp.header]||[]);
+  buildMapUI(); recompute();
+}
+$('impHeader').addEventListener('change', function(){
+  var h=(+this.value||1)-1-imp.offset; if(h<0) h=0; imp.header=h;
+  imp.map=C.guessMapping(imp.rows[h]||[]); buildMapUI(); recompute();
+});
+function colLetter(i){ var s=''; i++; while(i>0){ var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+function buildMapUI(){
+  var hdr=imp.rows[imp.header]||[], ncol=0;
+  imp.rows.forEach(function(r){ if(r && r.length>ncol) ncol=r.length; });
+  var opts='<option value="">— yo\'q —</option>';
+  for(var c=0;c<ncol;c++){ var h=hdr[c]; opts+='<option value="'+c+'">'+colLetter(c)+(h!=null&&h!==''?' · '+esc(String(h).slice(0,24)):'')+'</option>'; }
+  $('mapgrid').innerHTML=C.FIELDS.map(function(f){
+    return '<label class="f"><span>'+esc(f.label)+'</span><select data-k="'+f.key+'">'+opts+'</select></label>';
+  }).join('');
+  Array.prototype.forEach.call($('mapgrid').querySelectorAll('select'), function(s){
+    var v=imp.map[s.dataset.k]; s.value=(v===undefined?'':String(v)); s.classList.toggle('set', s.value!=='');
+    s.addEventListener('change', function(){ if(this.value==='') delete imp.map[this.dataset.k]; else imp.map[this.dataset.k]=+this.value; this.classList.toggle('set', this.value!==''); recompute(); });
+  });
+}
+function blocksCount(items){ var s={}; items.forEach(function(it){ s[it.block]=1; }); return Object.keys(s).length; }
+function recompute(){
+  imp.items=C.rowsToItems(imp.rows, imp.header, imp.map);
+  var hasInv=imp.map.invoiceNo!==undefined, hasTr=imp.map.transportNo!==undefined, nb=blocksCount(imp.items);
+  var opts=[
+    ['block','"Jami / Итого / 合计" qatorlari bo\'yicha — har bir blok alohida invoys', nb>1],
+    ['invoiceNo','Invoice № ustuni bo\'yicha (bir xil raqam — bitta invoys)', hasInv],
+    ['transportNo','Konteyner / transport raqami bo\'yicha', hasTr],
+    ['row','Har bir qator — alohida invoys', true]
+  ];
+  if(!opts.some(function(o){ return o[0]===imp.split && o[2]; })){
+    imp.split = hasInv ? 'invoiceNo' : (nb>1 ? 'block' : (hasTr ? 'transportNo' : 'row'));
+    if(hasInv && nb>1) imp.split='block';
+  }
+  $('splitRadios').innerHTML='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Qanday ajratilsin:</div>'+opts.map(function(o){
+    return '<label class="'+(o[2]?'':'dis')+'"><input type="radio" name="split" value="'+o[0]+'"'+(o[2]?'':' disabled')+(imp.split===o[0]?' checked':'')+'> '+o[1]+'</label>';
+  }).join('');
+  Array.prototype.forEach.call(document.getElementsByName('split'), function(r){ r.addEventListener('change', function(){ imp.split=this.value; renderPreview(); }); });
+  renderPreview();
+}
+function makeGroups(){
+  var items=JSON.parse(JSON.stringify(imp.items));
+  var groups = imp.mode==='one' ? [items] : C.groupItems(items, imp.split);
+  if($('impMerge').checked) groups=groups.map(function(g){ var m=C.mergeSame(g); ['invoiceNo','date','transportNo'].forEach(function(k){ m[0][k]=g[0][k]; }); return m; });
+  return groups;
+}
+function renderPreview(){
+  document.querySelectorAll('.opt').forEach(function(o){ o.classList.toggle('on', o.dataset.mode===imp.mode); });
+  $('splitbox').classList.toggle('on', imp.mode==='many');
+  var groups=makeGroups(), html='<table><thead><tr><th>Invoys</th><th>Tovar nomi</th><th>HS</th><th>Joy</th><th>O\'ram</th><th>Brutto</th><th>Netto</th><th>Miqdor</th><th>Narx</th><th>Summa</th><th>Konteyner</th></tr></thead><tbody>';
+  var shown=0, nums=numberGroups(groups);
+  groups.forEach(function(g,gi){
+    g.forEach(function(it,k){
+      if(shown++>200) return; var c=C.itemCalc(it);
+      html+='<tr class="'+(k===0&&gi>0?'sep':'')+'"><td class="g">'+(k===0?esc(nums[gi]):'')+'</td><td title="'+esc(it.name)+'">'+esc(it.name)+'</td><td>'+esc(it.hs)+'</td><td>'+fmt(it.packages,0)+'</td><td>'+esc(it.packType)+'</td><td>'+fmt(it.gross)+'</td><td>'+fmt(it.net)+'</td><td>'+fmt(c.qty,3)+'</td><td>'+(c.price!==null?fmtFree(C.round(c.price,6)):'')+'</td><td>'+fmt(c.sum)+'</td><td>'+esc(it.transportNo)+'</td></tr>';
+    });
+  });
+  html+='</tbody></table>';
+  $('preview').innerHTML=imp.items.length?html:'<div style="padding:14px" class="muted">Tovar qatorlari topilmadi. Sarlavha qatori va ustunlarni tekshiring (kamida Miqdori, Joylar soni, Narxi yoki Summa bo\'lishi kerak).</div>';
+  var t=C.totals(imp.items);
+  var nRows=groups.reduce(function(a,g){ return a+g.length; },0);
+  $('impStat').innerHTML=imp.items.length ? ('<b>'+imp.items.length+'</b> ta tovar qatori'+(nRows!==imp.items.length?' (jamlangandan keyin '+nRows+')':'')+' → <b>'+groups.length+'</b> ta invoys. Jami: '+fmt(t.packages,0)+' joy, '+fmt(t.qty,3)+' miqdor, '+fmt(t.sum)+' summa.') : '';
+  $('impGo').disabled=!imp.items.length;
+  $('impGo').textContent=groups.length>1?groups.length+' ta invoys yaratish':'Invoys yaratish';
+}
+function numberGroups(groups){
+  var start=C.num($('impStart').value), next=start!==null?start:null, out=[];
+  groups.forEach(function(g){
+    var raw=String(g[0].invoiceNo||'').trim();
+    if(imp.mode==='one') raw=raw||String(cur().no||'');
+    if(raw){ out.push(raw); var n=C.num(raw); if(n!==null) next=n+1; }
+    else if(next!==null){ out.push(String(next)); next++; }
+    else out.push('');
+  });
+  return out;
+}
+$('impStart').addEventListener('input', renderPreview);
+$('impMerge').addEventListener('change', renderPreview);
+document.querySelectorAll('.opt').forEach(function(o){ o.addEventListener('click', function(){ imp.mode=this.dataset.mode; renderPreview(); }); });
+$('impGo').addEventListener('click', function(){
+  var groups=makeGroups(), nums=numberGroups(groups), dflt=$('impDate').value||todayISO();
+  var invs=groups.map(function(g,gi){
+    var inv=blankInvoice(nums[gi]);
+    inv.date=toISO(g[0].date)||dflt;
+    inv.transportNo=g[0].transportNo||'';
+    inv.items=g.map(function(it){ return {name:it.name||'',hs:it.hs||'',packages:it.packages==null?'':String(it.packages),packType:it.packType||'carton',
+      gross:it.gross==null?'':String(C.round(it.gross,4)),net:it.net==null?'':String(C.round(it.net,4)),qty:it.qty==null?'':String(C.round(it.qty,6)),
+      price:it.price==null?'':String(C.round(it.price,6)),sum:it.price==null&&it.sum!=null?String(C.round(it.sum,6)):''}; });
+    return inv;
+  });
+  if(imp.mode==='one' && $('impReplace').checked){
+    var c=cur(); c.items=invs[0].items; if(!c.transportNo) c.transportNo=invs[0].transportNo; if(!c.no) c.no=invs[0].no;
+  } else if($('impReplace').checked){ state.invoices=invs; state.active=0; }
+  else { state.invoices=state.invoices.filter(function(v){ return C.totals(v.items).sum||v.items.some(function(x){return !C.isEmptyItem(x);}); }).concat(invs); state.active=state.invoices.length-invs.length; }
+  closeImp(); renderInvoice(); persist();
+  toast(invs.length>1?invs.length+' ta invoys yaratildi':'Tovarlar invoysga joylandi');
+});
+
+// ---------- init ----------
+fillCommon(); refreshSaved(); renderInvoice();
+})();
+</script>
+</body>
+</html>
